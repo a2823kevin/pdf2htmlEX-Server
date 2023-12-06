@@ -11,7 +11,7 @@ TID_LENGTH = 5
 
 app = FastAPI()
 logger = logging.getLogger("uvicorn")
-mine = magic.Magic(True)
+mime = magic.Magic(True)
 tasks = {}
 
 def convert_task(task_id):
@@ -36,7 +36,7 @@ async def convert_pdf_to_html(uploaded_file: UploadFile):
     response = {"status": "Rejected"}
     # check file availability
     content = uploaded_file.file.read()
-    if (mine.from_buffer(content)=="application/pdf"):
+    if (mime.from_buffer(content)=="application/pdf"):
         response["status"] = "Accepted"
 
         # save uploaded file
@@ -82,7 +82,7 @@ async def get_html_file(task_id):
             content = fin.read()
             # clean up files
             Thread(target=clean_up_files, args=(task,)).start()
-            
+
             # send html file
             return Response(
                 headers={
