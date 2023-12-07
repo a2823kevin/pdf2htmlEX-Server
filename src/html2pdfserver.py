@@ -91,7 +91,7 @@ async def get_html_file(task_id):
             # send html file
             return Response(
                 headers={
-                    "Content-Type": "application/pdf", 
+                    "Content-Type": "text/html", 
                     "Content-Disposition": f"attachment; filename={Path(task['outputfile']).name}"
                 }, 
                 content=content
