@@ -17,10 +17,15 @@ tasks = {}
 def convert_task(task_id):
     input_file_path = tasks[task_id]['inputfile']
     logger.info(f"converting {input_file_path} to html file...")
-    os.system(f"docker run -it --rm -v pdf:/pdf -w /pdf pdf2htmlex/pdf2htmlex:0.18.8.rc2-master-20200820-ubuntu-20.04-x86_64 --process-outline 0 --font-size-multiplier 1 --zoom 1.35 '{input_file_path}'")
+    os.system(f"docker run -it --rm -v ./pdf:/pdf -w /pdf pdf2htmlex/pdf2htmlex:0.18.8.rc2-master-20200820-ubuntu-20.04-x86_64 --process-outline 0 --font-size-multiplier 1 --zoom 1.35 '/{input_file_path}'")
     
     output_file_path = f"{Path(input_file_path).with_suffix('')}.html"
     if (Path(output_file_path).exists()):
+        with open(output_file_path, "rb") as fin:
+            content = fin.read()
+        Path(output_file_path).unlink()
+        with open(output_file_path, "wb") as fout:
+            fout.write(content)
         tasks[task_id]["outputfile"] = output_file_path
         tasks[task_id]["state"] = "finished"
     else:

@@ -1,3 +1,4 @@
+import time
 import requests
 import pyrfc6266
 import logging
@@ -21,6 +22,7 @@ if __name__=="__main__":
             if (task_state!="working"):
                 logger.info(f"conversion task {task_state}")
                 break
+            time.sleep(1)
 
         '''Phase 3: download html file if conversion task complete'''
         if (task_state=="finished"):

@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/usr/bin/bash
 
-sudo apt install update
+sudo apt update
 sudo apt install libmagic1
 
 python3 -m venv venv
