@@ -1,4 +1,5 @@
 import os
+import dotenv
 from threading import Thread
 from pathlib import Path
 import logging
@@ -7,15 +8,16 @@ import secrets
 from fastapi import FastAPI, UploadFile, Response, HTTPException
 import magic
 
-TID_LENGTH = 5
+dotenv.load_dotenv()
+TOKEN_LENGTH = int(os.getenv("TOKEN_LENGTH"))
 
 app = FastAPI()
 logger = logging.getLogger("uvicorn")
 mime = magic.Magic(True)
 tasks = {}
 
-def convert_task(task_id):
-    input_file_path = tasks[task_id]['inputfile']
+def convert_task(token):
+    input_file_path = tasks[token]['inputfile']
     logger.info(f"converting {input_file_path} to html file...")
     os.system(f"docker run -it --rm -v ./pdf:/pdf -w /pdf pdf2htmlex/pdf2htmlex:0.18.8.rc2-master-20200820-ubuntu-20.04-x86_64 --process-outline 0 --font-size-multiplier 1 --zoom 1.35 '/{input_file_path}'")
     
@@ -26,10 +28,11 @@ def convert_task(task_id):
         Path(output_file_path).unlink()
         with open(output_file_path, "wb") as fout:
             fout.write(content)
-        tasks[task_id]["outputfile"] = output_file_path
-        tasks[task_id]["state"] = "finished"
+        tasks[token]["outputfile"] = output_file_path
+        tasks[token]["state"] = "finished"
     else:
-        tasks[task_id]["state"] = "failed"
+        tasks[token]["state"] = "failed"
+        Path(tasks[token]["inputfile"]).unlink()
         logger.error(f"conversion of {input_file_path} to html failed.")
 
 def clean_up_files(task):
@@ -50,39 +53,36 @@ async def convert_pdf_to_html(uploaded_file: UploadFile):
             fout.write(content)
 
         # converting task
-        # task id
-        id = "".join([secrets.choice(string.ascii_letters+string.digits) for _ in range(TID_LENGTH)])
-        response["task_id"] = id
-        tasks[id] = {"state": "working", "inputfile": output_file_path}
+        # task token
+        token = "".join([secrets.choice(string.ascii_letters+string.digits) for _ in range(TOKEN_LENGTH)])
+        response["token"] = token
+        tasks[token] = {"state": "working", "inputfile": output_file_path}
         #conversion
-        Thread(target=convert_task, args=(id,)).start()
+        Thread(target=convert_task, args=(token,)).start()
 
     return response
 
-@app.get("/task/{task_id}")
-async def get_conversion_state(task_id):
-    # check task id
-    if (task_id in tasks.keys()):
-        return {"state": tasks[task_id]["state"]}
+@app.get("/task/{token}")
+async def get_conversion_state(token):
+    # check token
+    if (token in tasks.keys()):
+        if (tasks[token]["state"]=="failed"):
+            tasks.pop(token)
+        return {"state": tasks[token]["state"]}
 
-    return {"state": "unknown"}
+    raise HTTPException(status_code=404)
 
-@app.get("/html/{task_id}")
-async def get_html_file(task_id):
+@app.get("/html/{token}")
+async def get_html_file(token):
     # check if html is generated
     ok = False
-    if (task_id in tasks.keys()):
-        if (tasks[task_id]["state"]=="finished"):
+    if (token in tasks.keys()):
+        if (tasks[token]["state"]=="finished"):
             ok = True
-
-        # deal conversion failed
-        if (tasks[task_id]["state"]=="failed"):
-            Path(tasks[task_id]["inputfile"]).unlink()
-            tasks.pop(task_id)
 
     if (ok):
         # remove task & send html file
-        task = tasks.pop(task_id)
+        task = tasks.pop(token)
         with open(task["outputfile"], "rb") as fin:
             content = fin.read()
             # clean up files
