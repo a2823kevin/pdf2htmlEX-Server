@@ -1,26 +1,48 @@
 import os
 import dotenv
 from threading import Thread
+import subprocess
 from pathlib import Path
 import logging
+import re
 import string
 import secrets
 from fastapi import FastAPI, UploadFile, Response, HTTPException
-import magic
+# import magic
 
 dotenv.load_dotenv()
 TOKEN_LENGTH = int(os.getenv("TOKEN_LENGTH"))
 
 app = FastAPI()
 logger = logging.getLogger("uvicorn")
-mime = magic.Magic(True)
+# mime = magic.Magic(True)
 tasks = {}
 
+def extract_progress(pdf2htmlex_output_ln):
+    match = re.search("Working: *(\d+)\/(\d+)", pdf2htmlex_output_ln)
+    if (match):
+        result = (int(match.group(1))*100) // int(match.group(2)) 
+        return str(result)
+    return None
+        
+
 def convert_task(token):
-    input_file_path = tasks[token]['inputfile']
+    input_file_path = tasks[token]['inputfile'][2:]
     logger.info(f"converting {input_file_path} to html file...")
-    os.system(f"docker run -it --rm -v ./pdf:/pdf -w /pdf pdf2htmlex/pdf2htmlex:0.18.8.rc2-master-20200820-ubuntu-20.04-x86_64 --process-outline 0 --font-size-multiplier 1 --zoom 1.35 '/{input_file_path}'")
+    convert_proc = subprocess.Popen(f"docker run -it --rm -v {os.getcwd()}/pdf:/pdf -w /pdf pdf2htmlex/pdf2htmlex:0.18.8.rc2-master-20200820-ubuntu-20.04-x86_64 --process-outline 0 --font-size-multiplier 1 --zoom 1.35 /{input_file_path}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
     
+    # convert
+    while (convert_proc.poll() is None):
+        ln = convert_proc.stdout.readline()[:-1]
+        print(ln)
+        progress = extract_progress(ln)
+        if (progress is not None):
+            tasks[token]["progress"] = progress
+
+    # conversion complete
+    convert_proc.wait()
+    convert_proc.kill()
+
     output_file_path = f"{Path(input_file_path).with_suffix('')}.html"
     if (Path(output_file_path).exists()):
         with open(output_file_path, "rb") as fin:
@@ -44,11 +66,12 @@ async def convert_pdf_to_html(uploaded_file: UploadFile):
     response = {"status": "Rejected"}
     # check file availability
     content = uploaded_file.file.read()
-    if (mime.from_buffer(content)=="application/pdf"):
+    # if (mime.from_buffer(content)=="application/pdf"):
+    if (os.path.splitext(uploaded_file.filename)[-1]==".pdf"):
         response["status"] = "Accepted"
 
         # save uploaded file
-        output_file_path = f"pdf/{uploaded_file.filename}"
+        output_file_path = f"./pdf/{uploaded_file.filename}"
         with open(output_file_path, "wb") as fout:
             fout.write(content)
 
@@ -56,7 +79,7 @@ async def convert_pdf_to_html(uploaded_file: UploadFile):
         # task token
         token = "".join([secrets.choice(string.ascii_letters+string.digits) for _ in range(TOKEN_LENGTH)])
         response["token"] = token
-        tasks[token] = {"state": "working", "inputfile": output_file_path}
+        tasks[token] = {"state": "working", "progress": "0", "inputfile": output_file_path}
         #conversion
         Thread(target=convert_task, args=(token,)).start()
 
@@ -68,7 +91,7 @@ async def get_conversion_state(token):
     if (token in tasks.keys()):
         if (tasks[token]["state"]=="failed"):
             tasks.pop(token)
-        return {"state": tasks[token]["state"]}
+        return {"state": tasks[token]["state"], "progress": tasks[token]["progress"]}
 
     raise HTTPException(status_code=404)
 
