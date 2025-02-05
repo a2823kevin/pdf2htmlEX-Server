@@ -1,3 +1,5 @@
+docker pull pdf2htmlex/pdf2htmlex:0.18.8.rc2-master-20200820-ubuntu-20.04-x86_64
+
 IF NOT EXIST venv (
     python -m venv venv
 )
