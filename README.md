@@ -4,25 +4,15 @@
 ## APIs
 - **POST ```/pdf```**
   
-  收取用戶上傳的PDF檔案，生成一個token返回給用戶，並開始轉換檔案。
+  收取用戶上傳的PDF檔案，生成一個taskid返回給用戶，並開始轉換檔案。
 
-- **GET ```/task/{token}```**
+- **GET ```/task/{taskid}```**
   
-  透過token查詢上傳PDF的轉換進度。
+  透過taskid查詢上傳PDF的轉換進度。
 
-- **GET ```/html/{token}```**
+- **GET ```/html/{taskid}```**
   
-  透過token下載轉換完成之對應HTML檔案。
-
-## 依賴項目
-- Python > 3.6
-- docker
-
-## 安裝
-執行```install.bat```
-
-## 使用方法
-執行```start_server.bat```
+  透過taskid下載轉換完成之對應HTML檔案。
 
 ## Credits
 此程式使用了*pdf2htmlEX* (https://github.com/pdf2htmlEX/pdf2htmlEX) 發佈之docker image作為PDF檔案轉換工具。
