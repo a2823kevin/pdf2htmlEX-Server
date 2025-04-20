@@ -24,8 +24,9 @@ def extract_progress(pdf2htmlex_output_ln):
 
 def cleanup(id):
     if (id in tasks.keys()):
-        Path(tasks[id]["inputfile"]).unlink()
-        Path(tasks[id]["outputfile"]).unlink()
+        for f in ["inputfile", "outputfile"]:
+            if (f in tasks[id].keys()):
+                Path(tasks[id][f]).unlink()
         tasks.pop(id)
 
 def auto_cleanup(id):
