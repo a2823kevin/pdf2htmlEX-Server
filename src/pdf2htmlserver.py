@@ -1,6 +1,8 @@
 import os
 import dotenv
 from threading import Thread
+import time
+import datetime
 import subprocess
 from pathlib import Path
 import logging
@@ -19,7 +21,22 @@ def extract_progress(pdf2htmlex_output_ln):
         result = (int(match.group(1))*100) // int(match.group(2)) 
         return str(result)
     return None
-        
+
+def cleanup_files(task):
+    Path(task["inputfile"]).unlink()
+    Path(task["outputfile"]).unlink()
+
+def auto_cleanup(id):
+    start_time = datetime.datetime.now()
+    while True:
+        current_time = datetime.datetime.now()
+        if (current_time>=start_time+datetime.timedelta(minutes=30)):
+            break
+        time.sleep(60)
+
+    if (id in tasks.keys()):
+        task = tasks.pop(id)
+        cleanup_files(task)
 
 def convert_task(id):
     input_file_path = tasks[id]['inputfile']
@@ -40,19 +57,13 @@ def convert_task(id):
     if (Path(output_file_path).exists()):
         with open(output_file_path, "rb") as fin:
             content = fin.read()
-        Path(output_file_path).unlink()
         with open(output_file_path, "wb") as fout:
             fout.write(content)
         tasks[id]["outputfile"] = output_file_path
         tasks[id]["state"] = "finished"
     else:
         tasks[id]["state"] = "failed"
-        # Path(tasks[id]["inputfile"]).unlink()
         logger.error(f"conversion of {input_file_path} to html failed.")
-
-def clean_up_files(task):
-    Path(task["inputfile"]).unlink()
-    Path(task["outputfile"]).unlink()
 
 @app.post("/pdf")
 async def convert_pdf_to_html(file: UploadFile):
@@ -74,8 +85,10 @@ async def convert_pdf_to_html(file: UploadFile):
         response["message"] = f"{file.filename} is in conversion."
         
         tasks[id] = {"state": "working", "progress": "0", "inputfile": output_file_path}
+        
         #conversion
         Thread(target=convert_task, args=(id,)).start()
+        Thread(target=auto_cleanup, args=(id,)).start()
 
     return response
 
@@ -107,7 +120,7 @@ async def get_html_file(id):
         with open(task["outputfile"], "rb") as fin:
             content = fin.read()
             # clean up files
-            Thread(target=clean_up_files, args=(task,)).start()
+            Thread(target=cleanup_files, args=(task,)).start()
 
             # send html file
             return Response(
