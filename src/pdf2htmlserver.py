@@ -22,9 +22,11 @@ def extract_progress(pdf2htmlex_output_ln):
         return str(result)
     return None
 
-def cleanup_files(task):
-    Path(task["inputfile"]).unlink()
-    Path(task["outputfile"]).unlink()
+def cleanup(id):
+    if (id in tasks.keys()):
+        Path(tasks[id]["inputfile"]).unlink()
+        Path(tasks[id]["outputfile"]).unlink()
+        tasks.pop(id)
 
 def auto_cleanup(id):
     start_time = datetime.datetime.now()
@@ -33,10 +35,7 @@ def auto_cleanup(id):
         if (current_time>=start_time+datetime.timedelta(minutes=30)):
             break
         time.sleep(60)
-
-    if (id in tasks.keys()):
-        task = tasks.pop(id)
-        cleanup_files(task)
+    cleanup(id)
 
 def convert_task(id):
     input_file_path = tasks[id]['inputfile']
@@ -96,13 +95,21 @@ async def convert_pdf_to_html(file: UploadFile):
 async def get_conversion_state(id):
     # check id
     if (id in tasks.keys()):
-        if (tasks[id]["state"]=="failed"):
-            tasks.pop(id)
-        return {
-            "status": tasks[id]["state"], 
-            "progress": tasks[id]["progress"], 
-            "message": f"Conversion progress: {tasks[id]['progress']}%"
-        }
+        task = tasks[id]
+        if (task["state"]=="failed"):
+            cleanup(id)
+            return {
+                    "status": task["state"], 
+                    "progress": task["progress"], 
+                    "message": f"Conversion failed."
+            }
+
+        else:
+            return {
+                    "status": task["state"], 
+                    "progress": task["progress"], 
+                    "message": f"Conversion progress: {task['progress']}%"
+            }
 
     raise HTTPException(status_code=404)
 
@@ -116,11 +123,11 @@ async def get_html_file(id):
 
     if (ok):
         # remove task & send html file
-        task = tasks.pop(id)
+        task = tasks[id]
         with open(task["outputfile"], "rb") as fin:
             content = fin.read()
             # clean up files
-            Thread(target=cleanup_files, args=(task,)).start()
+            Thread(target=cleanup, args=(id,)).start()
 
             # send html file
             return Response(
