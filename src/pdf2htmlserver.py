@@ -5,20 +5,23 @@ import time
 import datetime
 import subprocess
 from pathlib import Path
+from typing import Any
 import logging
 import re
 import uuid
-from fastapi import FastAPI, UploadFile, Response, HTTPException
+from fastapi import FastAPI, UploadFile, Response
 from pydantic import BaseModel
 
 class ApiResponse(BaseModel):
     status: str
     message: str | None = None
-    data: None
+    data: Any = None
     
+    @staticmethod
     def success(msg, data):
         return ApiResponse(status="ok", message=msg, data=data)
     
+    @staticmethod
     def error(msg):
         return ApiResponse(status="error", message=msg)
 
