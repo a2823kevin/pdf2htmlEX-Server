@@ -9,6 +9,18 @@ import logging
 import re
 import uuid
 from fastapi import FastAPI, UploadFile, Response, HTTPException
+from pydantic import BaseModel
+
+class ApiResponse(BaseModel):
+    status: str
+    message: str | None = None
+    data: None
+    
+    def success(msg, data):
+        return ApiResponse(status="ok", message=msg, data=data)
+    
+    def error(msg):
+        return ApiResponse(status="error", message=msg)
 
 dotenv.load_dotenv()
 app = FastAPI()
@@ -67,12 +79,9 @@ def convert_task(id):
 
 @app.post("/pdf")
 async def convert_pdf_to_html(file: UploadFile):
-    response = {"status": "Rejected"}
     # check file availability
     content = file.file.read()
     if (os.path.splitext(file.filename)[-1]==".pdf"):
-        response["status"] = "Accepted"
-
         # save uploaded file
         output_file_path = f"./pdf/{file.filename}"
         with open(output_file_path, "wb") as fout:
@@ -81,8 +90,6 @@ async def convert_pdf_to_html(file: UploadFile):
         # converting task
         # task id
         id = str(uuid.uuid4())
-        response["taskId"] = id
-        response["message"] = f"{file.filename} is in conversion."
         
         tasks[id] = {"state": "working", "progress": "0", "inputfile": output_file_path}
         
@@ -90,7 +97,13 @@ async def convert_pdf_to_html(file: UploadFile):
         Thread(target=convert_task, args=(id,)).start()
         Thread(target=auto_cleanup, args=(id,)).start()
 
-    return response
+        return ApiResponse.success(
+            f"{file.filename} is in conversion.", 
+            {
+                "taskId": id
+            }
+        )
+    return Response(status_code=400, content=ApiResponse.error("Invalid pdf file.").model_dump())
 
 @app.get("/task/{id}")
 async def get_conversion_state(id):
@@ -99,20 +112,24 @@ async def get_conversion_state(id):
         task = tasks[id]
         if (task["state"]=="failed"):
             cleanup(id)
-            return {
-                    "status": task["state"], 
-                    "progress": task["progress"], 
-                    "message": f"Conversion failed."
-            }
+            return ApiResponse.success(
+                "Conversion failed.", 
+                {
+                    "state": task["state"], 
+                    "progress": task["progress"]
+                }
+            )
 
         else:
-            return {
-                    "status": task["state"], 
-                    "progress": task["progress"], 
-                    "message": f"Conversion progress: {task['progress']}%"
-            }
+            return ApiResponse.success(
+                f"Conversion progress: {task['progress']}%", 
+                {
+                    "state": task["state"], 
+                    "progress": task["progress"]
+                }
+            )
 
-    raise HTTPException(status_code=404)
+    return Response(status_code=404, content=ApiResponse.error("Task not found.").model_dump())
 
 @app.get("/html/{id}")
 async def get_html_file(id):
@@ -138,4 +155,4 @@ async def get_html_file(id):
                 content=content
             )
 
-    raise HTTPException(status_code=404)
+    raise Response(status_code=404, content=ApiResponse.error("Task not found.").model_dump())
