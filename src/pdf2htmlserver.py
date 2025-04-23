@@ -106,7 +106,7 @@ async def convert_pdf_to_html(file: UploadFile):
                 "taskId": id
             }
         )
-    return Response(status_code=400, content=ApiResponse.error("Invalid pdf file.").model_dump())
+    return ApiResponse.error("Invalid pdf file.")
 
 @app.get("/task/{id}")
 async def get_conversion_state(id):
@@ -132,7 +132,7 @@ async def get_conversion_state(id):
                 }
             )
 
-    return Response(status_code=404, content=ApiResponse.error("Task not found.").model_dump())
+    return ApiResponse.error("Task not found.")
 
 @app.get("/html/{id}")
 async def get_html_file(id):
@@ -158,4 +158,4 @@ async def get_html_file(id):
                 content=content
             )
 
-    raise Response(status_code=404, content=ApiResponse.error("Task not found.").model_dump())
+    return ApiResponse.error("Task not found.")
