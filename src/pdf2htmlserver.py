@@ -41,7 +41,10 @@ def cleanup(id):
     if (id in tasks.keys()):
         for f in ["inputfile", "outputfile"]:
             if (f in tasks[id].keys()):
-                Path(tasks[id][f]).unlink()
+                try:
+                    Path(tasks[id][f]).unlink()
+                except:
+                    pass
         tasks.pop(id)
 
 def auto_cleanup(id):
@@ -56,7 +59,7 @@ def auto_cleanup(id):
 def convert_task(id):
     input_file_path = tasks[id]['inputfile']
     logger.info(f"converting {input_file_path} to html file...")
-    convert_proc = subprocess.Popen(["pdf2htmlEX", "--process-outline", "0", "--font-size-multiplier", "1", "--zoom", "1.35", input_file_path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    convert_proc = subprocess.Popen(["pdf2htmlEX", "--debug", "1", "--process-outline", "0", "--font-size-multiplier", "1", "--zoom", "1.35", input_file_path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     
     # convert
     while True:
