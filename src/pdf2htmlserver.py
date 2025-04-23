@@ -59,7 +59,7 @@ def auto_cleanup(id):
 def convert_task(id):
     input_file_path = tasks[id]['inputfile']
     logger.info(f"converting {input_file_path} to html file...")
-    convert_proc = subprocess.Popen(["pdf2htmlEX", "--debug", "1", "--process-outline", "0", "--font-size-multiplier", "1", "--no-drm", "1", "--bg-format", "none", input_file_path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    convert_proc = subprocess.Popen(["pdf2htmlEX", "--debug", "1", "--process-outline", "0", "--font-size-multiplier", "1", "--no-drm", "1", input_file_path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     
     # convert
     while True:
